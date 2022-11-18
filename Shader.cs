@@ -1,39 +1,24 @@
 ﻿using OpenTK.Compute.OpenCL;
 using OpenTK.Graphics.OpenGL4;
+using OpenTK.Mathematics;
 
 public class Shader
 {
     public int Handle;
+    private readonly Dictionary<string, int> _uniformLocations;
 
     public Shader(string vertexPath, string fragmentPath)
     {
         string VertexShaderSource = File.ReadAllText(vertexPath);
-
         string FragmentShaderSource = File.ReadAllText(fragmentPath);
 
         var VertexShader = GL.CreateShader(ShaderType.VertexShader);
         GL.ShaderSource(VertexShader, VertexShaderSource);
-
         var FragmentShader = GL.CreateShader(ShaderType.FragmentShader);
         GL.ShaderSource(FragmentShader, FragmentShaderSource);
 
         GL.CompileShader(VertexShader);
-
-        GL.GetShader(VertexShader, ShaderParameter.CompileStatus, out int successVert);
-        if (successVert == 0)
-        {
-            string infoLog = GL.GetShaderInfoLog(VertexShader);
-            Console.WriteLine(infoLog);
-        }
-
         GL.CompileShader(FragmentShader);
-
-        GL.GetShader(FragmentShader, ShaderParameter.CompileStatus, out  int successFrag);
-        if (successFrag == 0)
-        {
-            string infoLog = GL.GetShaderInfoLog(FragmentShader);
-            Console.WriteLine(infoLog);
-        }
 
         Handle = GL.CreateProgram();
 
@@ -41,40 +26,71 @@ public class Shader
         GL.AttachShader(Handle, FragmentShader);
         GL.LinkProgram(Handle);
 
-        GL.GetProgram(Handle, GetProgramParameterName.LinkStatus, out int success);
-        if (success == 0)
-        {
-            string infoLog = GL.GetProgramInfoLog(Handle);
-            Console.WriteLine(infoLog);
-        }
-
         GL.DetachShader(Handle, VertexShader);
         GL.DetachShader(Handle, FragmentShader);
         GL.DeleteShader(FragmentShader);
         GL.DeleteShader(VertexShader);
+
+        GL.GetProgram(Handle, GetProgramParameterName.ActiveUniforms, out var numberOfUniforms);
+
+        _uniformLocations = new Dictionary<string, int>();
+
+        for (var i = 0; i < numberOfUniforms; i++)
+        {
+            var key = GL.GetActiveUniform(Handle, i, out _, out _);
+
+            var location = GL.GetUniformLocation(Handle, key);
+
+            _uniformLocations.Add(key, location);
+        }
+    }
+    private static void CompileShader(int shader)
+    {
+        GL.CompileShader(shader);
+
+        GL.GetShader(shader, ShaderParameter.CompileStatus, out var code);
+        if (code != (int)All.True)
+        {
+            var infoLog = GL.GetShaderInfoLog(shader);
+            throw new Exception($"Error occurred whilst compiling Shader({shader}).\n\n{infoLog}");
+        }
+    }
+    private static void LinkProgram(int program)
+    {
+        GL.LinkProgram(program);
+
+        GL.GetProgram(program, GetProgramParameterName.LinkStatus, out var code);
+        if (code != (int)All.True)
+        {
+            throw new Exception($"Error occurred whilst linking Program({program})");
+        }
     }
     public void Use()
     {
         GL.UseProgram(Handle);
     }
-    private bool disposedValue = false;
-    protected virtual void Dispose(bool disposing)
+    public int GetAttribLocation(string attribName)
     {
-        if (!disposedValue)
-        {
-            GL.DeleteProgram(Handle);
-
-            disposedValue = true;
-        }
+        return GL.GetAttribLocation(Handle, attribName);
     }
-    ~Shader()
+    public void SetInt(string name, int data)
     {
-        GL.DeleteProgram(Handle);
+        GL.UseProgram(Handle);
+        GL.Uniform1(_uniformLocations[name], data);
     }
-
-    public void Dispose()
+    public void SetFloat(string name, float data)
     {
-        Dispose(true);
-        GC.SuppressFinalize(this);
+        GL.UseProgram(Handle);
+        GL.Uniform1(_uniformLocations[name], data);
+    }
+    public void SetMatrix4(string name, Matrix4 data)
+    {
+        GL.UseProgram(Handle);
+        GL.UniformMatrix4(_uniformLocations[name], true, ref data);
+    }
+    public void SetVector3(string name, Vector3 data)
+    {
+        GL.UseProgram(Handle);
+        GL.Uniform3(_uniformLocations[name], data);
     }
 }
