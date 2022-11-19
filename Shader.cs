@@ -4,32 +4,36 @@ using OpenTK.Mathematics;
 
 public class Shader
 {
-    public int Handle;
+    public readonly int Handle;
+
     private readonly Dictionary<string, int> _uniformLocations;
 
-    public Shader(string vertexPath, string fragmentPath)
+    public Shader(string vertPath, string fragPath)
     {
-        string VertexShaderSource = File.ReadAllText(vertexPath);
-        string FragmentShaderSource = File.ReadAllText(fragmentPath);
+        var shaderSource = File.ReadAllText(vertPath);
+        
+        var vertexShader = GL.CreateShader(ShaderType.VertexShader);
 
-        var VertexShader = GL.CreateShader(ShaderType.VertexShader);
-        GL.ShaderSource(VertexShader, VertexShaderSource);
-        var FragmentShader = GL.CreateShader(ShaderType.FragmentShader);
-        GL.ShaderSource(FragmentShader, FragmentShaderSource);
+        GL.ShaderSource(vertexShader, shaderSource);
 
-        GL.CompileShader(VertexShader);
-        GL.CompileShader(FragmentShader);
+        CompileShader(vertexShader);
+
+        shaderSource = File.ReadAllText(fragPath);
+        var fragmentShader = GL.CreateShader(ShaderType.FragmentShader);
+        GL.ShaderSource(fragmentShader, shaderSource);
+        CompileShader(fragmentShader);
 
         Handle = GL.CreateProgram();
 
-        GL.AttachShader(Handle, VertexShader);
-        GL.AttachShader(Handle, FragmentShader);
-        GL.LinkProgram(Handle);
+        GL.AttachShader(Handle, vertexShader);
+        GL.AttachShader(Handle, fragmentShader);
 
-        GL.DetachShader(Handle, VertexShader);
-        GL.DetachShader(Handle, FragmentShader);
-        GL.DeleteShader(FragmentShader);
-        GL.DeleteShader(VertexShader);
+        LinkProgram(Handle);
+
+        GL.DetachShader(Handle, vertexShader);
+        GL.DetachShader(Handle, fragmentShader);
+        GL.DeleteShader(fragmentShader);
+        GL.DeleteShader(vertexShader);
 
         GL.GetProgram(Handle, GetProgramParameterName.ActiveUniforms, out var numberOfUniforms);
 
